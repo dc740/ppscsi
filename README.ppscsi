@@ -1,0 +1,76 @@
+
+This is the second BETA-test of the ppSCSI suite of drivers for parallel port 
+SCSI adapters is now available. This release repairs some problems in the 0.90 
+release and introduces three more modules. The drivers must still be built as 
+loadable modules. You can find this release at
+
+        http://penguin-breeder.org/kernel/download/
+   
+
+The modules included are:
+
+	o ppscsi: the core library module for ppSCSI
+	o t348: a protocol module for the APA-348 and T348
+	o t358: a protocol module for the APA-358 and T358
+	o epsa2: a protocol module for the (old) Shuttle EPSA-2
+	o epst: a protocol module for the Shuttle EPST and APA-1350
+	o onscsi: a protocol module for the OnSpec 90c26
+	o sparcsi: a protocol module for the SparCSI and ParaSCSI
+	o vpi0: a protocol module for the Iomega VPI0
+	o vpi2: a protocol module for the Iomega VPI2 (EXPERIMENTAL)
+
+I have not test these modules at all, however they are reported to work on
+various systems. (There may still be some issues on SMP systems.) The devices 
+have included tapes, CD-ROMs, disks, and scanners. 
+
+To try this stuff out, you'll need to compile the modules against your kernel
+tree with 'make'. Copy the modules (*.ko) to your modules directory. Load 
+ppscsi and  finally one of the protocol modules. Assuming you have an 
+appropriate adapter  connected to one of your parallel ports, and that your 
+SCSI bus is powering the adapter, you should see the standard SCSI messages 
+within a few seconds.
+
+I'm going to assume that you are familiar with the Linux SCSI system and have a
+rough idea of how to proceed past this point.
+
+If you just want to try out the HP scanner support, the steps would be 
+something like:
+
+        insmod scsi_mod
+        insmod sg
+        insmod parport
+        insmod parport_pc
+        insmod ppscsi
+        insmod epst
+
+        scanimage -d hp:/dev/sg0 --mode Color > hpscan
+   
+NB: If you do this under X don't be surprised if your system freezes for the 
+duration of the scan. That's the downside of parallel port devices.
+
+While these devices will all work in SPP mode, I _strongly_ advise you not to 
+try to scan in anything other than EPP mode.
+
+The protocol modules accept several parameters. They are documented in the 
+comments at the beginning of ppscsi.c. The most important one is the "verbose" 
+option. Specifying verbose=N will allow various messages to be logged to your 
+console and/or kernel log. verbose=1 will enable progress reporting as the 
+driver probes for adapters. verbose=2 enables tracing of the SCSI commands, 3 
+enables basic debugging and 4 gives full debugging messages. Be warned, 
+verbose=4 can produce enormous logs.
+
+The "verbose" level, and several other parameters, can be changed by writing to
+files in the /proc/scsi tree. For instance, if you have a single epst adapter, 
+it can be controlled through /proc/scsi/epst/0.
+
+	echo verbose=2 > /proc/scsi/epst/0
+
+will enable basic debugging, for instance. The /proc/scsi files can also be 
+read to display parameters and statistics. (The level of detail displayed 
+depends on the verbose level.)
+
+Finally, please remember that testing any device driver has the potential to do
+serious damage to your file system. Make sure you take the necessary 
+precautions before trying out the new drivers. Don't use one of these drivers 
+to access the SCSI disk with the only copy of your thesis !
+
