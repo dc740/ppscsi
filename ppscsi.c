@@ -1039,31 +1039,32 @@ int ppsc_biosparam (struct scsi_device * sdev, struct block_device *bdev, sector
 	return 0;
 }
 
-/*We declare these two as globals to avoid reaching the 1024 local frame "limit"
- * But they were originally inside the ppsc_inquire function
+/*
+ * We declare these two as globals to avoid reaching the 1024 local frame "limit"
+ * But they were originally declared inside the ppsc_inquire function
  */
-struct scsi_cmnd cmd;
-struct scsi_device dev;
+struct scsi_cmnd ppsc_inquire_cmd;
+struct scsi_device ppsc_inquire_dev;
 static int ppsc_inquire (PHA *pha, int target, char *buf)
 {
 	char inq[6] = {0x12,0,0,0,36,0};
 	
-	dev.host = pha->host_ptr;
-	dev.id = target;
-	cmd.device = &dev;
-	cmd.cmd_len = 6;
-	cmd.cmnd = inq;
+	ppsc_inquire_dev.host = pha->host_ptr;
+	ppsc_inquire_dev.id = target;
+	ppsc_inquire_cmd.device = &ppsc_inquire_dev;
+	ppsc_inquire_cmd.cmd_len = 6;
+	ppsc_inquire_cmd.cmnd = inq;
 	#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,24)
-		cmd.sdb.table.nents = 0;
-		cmd.sdb.table.sgl = (struct scatterlist *)buf;
-		cmd.sdb.length = 36;
+		ppsc_inquire_cmd.sdb.table.nents = 0;
+		ppsc_inquire_cmd.sdb.table.sgl = (struct scatterlist *)buf;
+		ppsc_inquire_cmd.sdb.length = 36;
 	#else
-		cmd.use_sg = 0;
-		cmd.request_buffer = buf;
-		cmd.request_bufflen = 36;
+		ppsc_inquire_cmd.use_sg = 0;
+		ppsc_inquire_cmd.request_buffer = buf;
+		ppsc_inquire_cmd.request_bufflen = 36;
 	#endif
 
-	return ppsc_command(&cmd);
+	return ppsc_command(&ppsc_inquire_cmd);
 	
 }
 
