@@ -1040,20 +1040,30 @@ int ppsc_biosparam (struct scsi_device * sdev, struct block_device *bdev, sector
 }
 
 /*
- * We declare these two as globals to avoid reaching the 1024 local frame "limit"
+ * We declare the first two as globals to avoid reaching the 1024 local frame "limit"
  * But they were originally declared inside the ppsc_inquire function
+ * Also, we avoid assigning the local array "inq" to cmnd, since we don't
+ * know what could happen to the array memory outside the function scope.
+ * I didn't want to deal with malloc for this, so I declared ppsc_inquire_command
+ * as a global. Dirty hack, I know, but the old code was not safe.
  */
 struct scsi_cmnd ppsc_inquire_cmd;
 struct scsi_device ppsc_inquire_dev;
+char ppsc_inquire_command[6];
 static int ppsc_inquire (PHA *pha, int target, char *buf)
 {
-	char inq[6] = {0x12,0,0,0,36,0};
-	
+    char inq[6] = {0x12,0,0,0,36,0};
+    
 	ppsc_inquire_dev.host = pha->host_ptr;
 	ppsc_inquire_dev.id = target;
 	ppsc_inquire_cmd.device = &ppsc_inquire_dev;
 	ppsc_inquire_cmd.cmd_len = 6;
-	ppsc_inquire_cmd.cmnd = inq;
+    #if LINUX_VERSION_CODE > KERNEL_VERSION(3,13,0)
+        memcpy(ppsc_inquire_command, inq, 6);
+        ppsc_inquire_cmd.cmnd = ppsc_inquire_command;
+    #else
+        memcpy(ppsc_inquire_cmd.cmnd, inq, 6);
+    #endif
 	#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,24)
 		ppsc_inquire_cmd.sdb.table.nents = 0;
 		ppsc_inquire_cmd.sdb.table.sgl = (struct scatterlist *)buf;
