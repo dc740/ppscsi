@@ -225,11 +225,16 @@ static void ppsc_tq_int (struct work_struct *data)
 	spin_unlock_irqrestore(&ppsc_spinlock,flags);
 }
 
-static void ppsc_timer_int (unsigned long data)
-{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,00)
+static void ppsc_timer_int (unsigned long data) {
+	PHA *pha = (PHA *)data;
+#else
+static void ppsc_timer_int (struct timer_list *t){
+	PHA *pha = from_timer(pha, t, timer);
+#endif
 	void (*con)(PHA *);
 	unsigned long flags;
-	PHA *pha = (PHA *)data;
+
 
 	spin_lock_irqsave(&ppsc_spinlock,flags);
 
@@ -774,14 +779,19 @@ static void ppsc_slow_done (PHA *pha)
 	
 	ppsc_engine(pha);
 } 
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,00)
 static void ppsc_try_again (unsigned long data )
 {
 	PHA *pha = (PHA *)data;
 
 	ppsc_do_claimed(pha,ppsc_start);
 }
- 
+#else
+static void ppsc_try_again(struct timer_list *t){
+	PHA *pha = from_timer(pha, t, sleeper);
+	ppsc_do_claimed(pha, ppsc_start);
+}
+#endif
 static void ppsc_cleanup (PHA *pha)
 {
 	struct scsi_cmnd *cmd;
@@ -820,10 +830,13 @@ static void ppsc_cleanup (PHA *pha)
 		if (V_FULL)
 			printk("%s: BUSY, sleeping before retry ...\n",
 			       pha->device);
-
-		init_timer (&pha->sleeper);
-		pha->sleeper.data = (unsigned long) pha;
-		pha->sleeper.function = ppsc_try_again;
+		#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,00)
+			init_timer (&pha->sleeper);
+			pha->sleeper.data = (unsigned long) pha;
+			pha->sleeper.function = ppsc_try_again;
+		#else
+			timer_setup(&pha->sleeper, ppsc_try_again, 0);
+		#endif
 		pha->sleeper.expires = jiffies + PPSC_BUSY_SNOOZE;
 		add_timer(&pha->sleeper);
 
@@ -1207,9 +1220,13 @@ int ppsc_detect (PSP *proto, struct scsi_host_template *tpnt, int verbose)
 			INIT_WORK(&pha->wq, ppsc_tq_int);
 		#endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,00)
 		init_timer (&pha->timer);
 		pha->timer.data = (unsigned long) pha;
 		pha->timer.function = ppsc_timer_int;
+#else
+		timer_setup(&pha->timer, ppsc_timer_int, 0);
+#endif
 
 		init_waitqueue_head (&pha->parq);
 		pha->pardev = NULL;
